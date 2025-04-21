@@ -16,6 +16,7 @@ public class Message
 public class client : MonoBehaviour
 {
     WebSocket websocket;
+    private bool is_open = false;
     private Camera Camera
     {
         get
@@ -32,11 +33,11 @@ public class client : MonoBehaviour
 
     byte[] capture()
     {
-        // ±âÁ¸ RenderTexture ÀúÀå
+        // ï¿½ï¿½ï¿½ï¿½ RenderTexture ï¿½ï¿½ï¿½ï¿½
         RenderTexture activeRenderTexture = RenderTexture.active;
 
-        // RenderTexture Å©±â¸¦ ·»´õ ÆÐ½º¿¡ ¸Â°Ô ¼³Á¤
-        RenderTexture tempRT = new RenderTexture(649, 365, 16); // ¿À·ù ¸Þ½ÃÁöÀÇ ±â´ë ÇØ»óµµ
+        // RenderTexture Å©ï¿½â¸¦ ï¿½ï¿½ï¿½ï¿½ ï¿½Ð½ï¿½ï¿½ï¿½ ï¿½Â°ï¿½ ï¿½ï¿½ï¿½ï¿½
+        RenderTexture tempRT = new RenderTexture(649, 365, 16); // ï¿½ï¿½ï¿½ï¿½ ï¿½Þ½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½Ø»ï¿½
         Camera.targetTexture = tempRT;
         RenderTexture.active = tempRT;
 
@@ -46,12 +47,12 @@ public class client : MonoBehaviour
         image.ReadPixels(new Rect(0, 0, tempRT.width, tempRT.height), 0, 0);
         image.Apply();
 
-        // Á¤¸®
+        // ï¿½ï¿½ï¿½ï¿½
         RenderTexture.active = activeRenderTexture;
-        Camera.targetTexture = null; // ¿ø·¡ »óÅÂ·Î º¹±¸
+        Camera.targetTexture = null; // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Â·ï¿½ ï¿½ï¿½ï¿½ï¿½
         byte[] bytes = image.EncodeToPNG();
         Destroy(image);
-        Destroy(tempRT); // ÀÓ½Ã RenderTexture Á¤¸®
+        Destroy(tempRT); // ï¿½Ó½ï¿½ RenderTexture ï¿½ï¿½ï¿½ï¿½
 
         return bytes;
     }
@@ -68,6 +69,7 @@ public class client : MonoBehaviour
             Message msg = new Message();
             msg.type = "first";
             msg.data = "robot";
+            is_open = true;
             await websocket.SendText(JsonUtility.ToJson(msg));
         };
 
@@ -79,6 +81,7 @@ public class client : MonoBehaviour
         websocket.OnClose += (e) =>
         {
             Debug.Log("Connection closed!");
+            is_open = false;
         };
 
 
@@ -108,11 +111,20 @@ public class client : MonoBehaviour
         await websocket.Connect();
     }
 
-    void Update()
+    async void Update()
     {
-    #if !UNITY_WEBGL || UNITY_EDITOR
-            websocket.DispatchMessageQueue();
-    #endif
+        #if !UNITY_WEBGL || UNITY_EDITOR
+                websocket.DispatchMessageQueue();
+        #endif
+        if (is_open){
+            string image = Convert.ToBase64String(capture());
+            Message msg = new Message();
+            msg.type = "image";
+            msg.data = image;
+            string i = JsonUtility.ToJson(msg);
+            Debug.Log(">>>>>>>>>>>>>"+i);
+            await websocket.SendText(i);
+        }
     }
 
     async void SendWebSocketMessage()
