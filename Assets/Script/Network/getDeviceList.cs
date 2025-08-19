@@ -31,6 +31,7 @@ public class getDeviceList : MonoBehaviour
         IPEndPoint ipEndPoint = new IPEndPoint(IPAddress.Any, PORT);
         socket.ExclusiveAddressUse = false;
         socket.Bind(ipEndPoint);
+        socket.EnableBroadcast = true; // Allow broadcast reception
         endPoint = (EndPoint)ipEndPoint;
     }
 
@@ -39,17 +40,34 @@ public class getDeviceList : MonoBehaviour
         Receive();
     }
 
-    void UpdateItem()
+    void UpdateItem(broadcastItem data)
     {
         GameObject[] items = GameObject.FindGameObjectsWithTag("DeviceItem");
         Debug.Log("Updating item: " + items.Length);
-        var item_go = Instantiate(baseItem, context.transform);
-        // do something with the instantiated item -- for instance
-        item_go.GetComponentAtIndex<TMP_Text>(0).text = "Item #" + i;
-        //parent the item to the content container
-        item_go.transform.SetParent(context.transform, false);
-        item_go.transform.localScale = Vector2.one;
-        
+        bool onlist = false;
+        for (int i = 0; i < items.Length; i++)
+        {
+            onlist = items[i].name == data.name;
+        }
+
+        if (!onlist)
+        {
+            var item_go = Instantiate(baseItem, context.transform);
+            item_go.tag = "DeviceItem"; // Ensure the new item has the correct tag
+            item_go.name = data.name; // Set the name of the item for easier identification
+            item_go.SetActive(true); // Activate the item if it was inactive
+            // do something with the instantiated item -- for instance
+            item_go.GetComponentsInChildren<TMP_Text>()[0].SetText(data.name);
+            item_go.GetComponentsInChildren<TMP_Text>()[1].SetText(data.version);
+            //parent the item to the content container
+            item_go.transform.SetParent(context.transform, false);
+            item_go.transform.localScale = Vector2.one;
+            
+            item_go.GetComponent<Button>().onClick.AddListener(() =>
+            {
+                FindAnyObjectByType<Client>().Connection(data);
+            });
+        }
     }
 
 
@@ -72,7 +90,7 @@ public class getDeviceList : MonoBehaviour
 
             packetData = JsonUtility.FromJson<broadcastItem>(System.Text.Encoding.UTF8.GetString(packet).TrimEnd('\0'));
             Debug.Log("Received packet: " + packetData.name);
-            UpdateItem();
+            UpdateItem(packetData);
         }
     }
 }

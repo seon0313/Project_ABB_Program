@@ -5,6 +5,10 @@ TagManager:
   serializedVersion: 3
   tags:
   - DeviceItem
+  - Client
+  - connectionPanel
+  - killClickPanel
+  - loginPanel
   layers:
   - Default
   - TransparentFX
