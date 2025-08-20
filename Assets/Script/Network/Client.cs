@@ -1,6 +1,8 @@
 using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using Newtonsoft.Json;
+using System.Collections.Generic;
 
 public class Client : MonoBehaviour
 {
@@ -9,7 +11,7 @@ public class Client : MonoBehaviour
     private static GameObject killClickPanel;
     private static GameObject loginPanel;
     public WebSocketSharp.WebSocket ws;
-    private static bool hasLogin = false;
+    public static bool hasLogin = false;
     public broadcastItem robot;
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
@@ -19,6 +21,8 @@ public class Client : MonoBehaviour
         killClickPanel = GameObject.FindGameObjectWithTag("killClickPanel");
         loginPanel = GameObject.FindGameObjectWithTag("loginPanel");
     }
+    
+    public bool getHasLogin() { return hasLogin; }
 
     public void HelloWorld(string val)
     {
@@ -26,12 +30,14 @@ public class Client : MonoBehaviour
         try
         {
             connectionPanel.GetComponentsInChildren<TMP_Text>()[0].SetText("Connecting to " + val);
-        } catch {}
+        }
+        catch { }
     }
 
     public bool Connection(broadcastItem data)
     {
         hasLogin = false;
+        
         if (killClickPanel != null)
         {
             killClickPanel.SetActive(false);
@@ -45,17 +51,21 @@ public class Client : MonoBehaviour
         ws.OnMessage += (sender, e) => OnMessage(sender, e);
         ws.OnOpen += (sender, e) =>
         {
+            killClickPanel = GameObject.FindGameObjectWithTag("killClickPanel");
+            loginPanel = GameObject.FindGameObjectWithTag("loginPanel");
             Debug.Log("Connection opened");
+            Debug.Log("" + (killClickPanel == null) + " - " + (loginPanel == null));
             robot = data;
             if (killClickPanel != null)
             {
-                killClickPanel.SetActive(true);
+                GameObject.FindGameObjectsWithTag("killClickPanel")[0].GetComponentInChildren<GameObject>().SetActive(false);
             }
+            Debug.Log("hasLogin: " + hasLogin + ", loginPanel == null: " + (loginPanel == null));
             if (!hasLogin)
             {
                 if (loginPanel != null)
                 {
-                    loginPanel.SetActive(true);
+                    GameObject.FindGameObjectsWithTag("loginPanel")[0].GetComponentInChildren<GameObject>().SetActive(true);
                 }
             }
         };
@@ -65,7 +75,7 @@ public class Client : MonoBehaviour
             robot = null;
             if (killClickPanel != null)
             {
-                killClickPanel.SetActive(true);
+                killClickPanel.GetComponentInChildren<GameObject>().SetActive(true);
             }
         };
         ws.Connect();
@@ -76,13 +86,25 @@ public class Client : MonoBehaviour
     void OnMessage(object sender, WebSocketSharp.MessageEventArgs e)
     {
         Debug.Log("Message received: " + e.Data);
+        var data = JsonConvert.DeserializeObject<Dictionary<string, object>>(e.Data);
+        Debug.Log("Command: " + data["command"] + "Data: " + data["data"]);
+        if ((data["command"] as string) == "login" && (data["data"] as string) == "pass")
+        {
+            hasLogin = true;
+            loginPanel.SetActive(false);
+        }
     }
 
     void ConnectionBarSet()
     {
+        string text = "No device";
         if (connectionPanel != null && robot != null)
         {
-            connectionPanel.GetComponentsInChildren<TMP_Text>()[0].SetText(robot.name);
+            if (hasLogin)
+            {
+                text = "Connected to " + robot.name;
+            }
+            connectionPanel.GetComponentsInChildren<TMP_Text>()[0].SetText(text);
         }
     }
 
@@ -104,8 +126,6 @@ public class Client : MonoBehaviour
     private void OnSceneChange(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.Scene mode)
     {
         connectionPanel = GameObject.FindGameObjectWithTag("connectionPanel");
-        killClickPanel = GameObject.FindGameObjectWithTag("killClickPanel");
-        loginPanel = GameObject.FindGameObjectWithTag("loginPanel");
         ConnectionBarSet();
     }
 

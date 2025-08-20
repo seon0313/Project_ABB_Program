@@ -14,6 +14,9 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/HandControl.unity
     guid: 47a31d5e552ae3a41ac0ef975ae31eea
+  - enabled: 1
+    path: Assets/Scenes/Consol.unity
+    guid: 1630b0bba8115da4991b2277dab1ed5a
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0

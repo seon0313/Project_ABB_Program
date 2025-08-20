@@ -1,5 +1,6 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class Login : MonoBehaviour
 {
@@ -16,7 +17,10 @@ public class Login : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-
+        if (client != null && client.getHasLogin())
+        {
+            SceneManager.LoadScene("Mainmenu");
+        }
     }
 
     public void loginButtonClick()
