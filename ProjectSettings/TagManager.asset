@@ -9,6 +9,7 @@ TagManager:
   - connectionPanel
   - killClickPanel
   - loginPanel
+  - ConsolContent
   layers:
   - Default
   - TransparentFX

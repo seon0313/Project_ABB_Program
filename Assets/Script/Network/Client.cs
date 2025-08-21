@@ -23,6 +23,7 @@ public class Client : MonoBehaviour
     }
     
     public bool getHasLogin() { return hasLogin; }
+    public void setHasLogin(bool val) { hasLogin = val;}
 
     public void HelloWorld(string val)
     {
@@ -73,6 +74,8 @@ public class Client : MonoBehaviour
         {
             Debug.Log("Connection closed: " + e.Reason);
             robot = null;
+            hasLogin = false;
+            ConnectionBarSet();
             if (killClickPanel != null)
             {
                 killClickPanel.GetComponentInChildren<GameObject>().SetActive(true);
@@ -87,15 +90,33 @@ public class Client : MonoBehaviour
     {
         Debug.Log("Message received: " + e.Data);
         var data = JsonConvert.DeserializeObject<Dictionary<string, object>>(e.Data);
-        Debug.Log("Command: " + data["command"] + "Data: " + data["data"]);
-        if ((data["command"] as string) == "login" && (data["data"] as string) == "pass")
+        Debug.Log("Command: " + (data.ContainsKey("command") ? data["command"] : "null") + " Data: " + (data.ContainsKey("data") ? data["data"] : "null"));
+        string command = data.ContainsKey("command") && data["command"] != null ? data["command"].ToString() : "";
+        string msgData = data.ContainsKey("data") && data["data"] != null ? data["data"].ToString() : "";
+
+        if (command == "login" && msgData == "pass")
         {
             hasLogin = true;
             loginPanel.SetActive(false);
         }
+
+        if (command == "log")
+        {
+            Debug.Log("Log command received");
+            GameObject consol = GameObject.FindGameObjectWithTag("ConsolContent");
+            Debug.Log("Consol: " + (consol == null));
+            if (consol != null)
+            {
+                var logText = new GameObject("LogText");
+                var tmp = logText.AddComponent<TMP_Text>();
+                tmp.text = msgData;
+                tmp.fontSize = 18;
+                logText.transform.SetParent(consol.transform, false);
+            }
+        }
     }
 
-    void ConnectionBarSet()
+    public void ConnectionBarSet()
     {
         string text = "No device";
         if (connectionPanel != null && robot != null)
