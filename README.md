@@ -2,7 +2,7 @@
 
 
 ## 설치:
-[Releases](https://github.com/seon0313/Project_ABB_Program/releases)
+[여기서 다운로드 받기](https://github.com/seon0313/Project_ABB_Program/releases)
 
 지원기기: Windows 64bit, Windows ARM 64bit, Android
 
