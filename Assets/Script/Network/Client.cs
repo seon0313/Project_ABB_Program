@@ -3,6 +3,9 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using Newtonsoft.Json;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
+using System;
+using UnityEngine.UI;
 
 public class Client : MonoBehaviour
 {
@@ -13,17 +16,17 @@ public class Client : MonoBehaviour
     public WebSocketSharp.WebSocket ws;
     public static bool hasLogin = false;
     public broadcastItem robot;
+    private static readonly ConcurrentQueue<Action> mainThreadActions = new ConcurrentQueue<Action>();
 
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
         connectionPanel = GameObject.FindGameObjectWithTag("connectionPanel");
         killClickPanel = GameObject.FindGameObjectWithTag("killClickPanel");
         loginPanel = GameObject.FindGameObjectWithTag("loginPanel");
     }
-    
+
     public bool getHasLogin() { return hasLogin; }
-    public void setHasLogin(bool val) { hasLogin = val;}
+    public void setHasLogin(bool val) { hasLogin = val; }
 
     public void HelloWorld(string val)
     {
@@ -38,7 +41,7 @@ public class Client : MonoBehaviour
     public bool Connection(broadcastItem data)
     {
         hasLogin = false;
-        
+
         if (killClickPanel != null)
         {
             killClickPanel.SetActive(false);
@@ -52,37 +55,40 @@ public class Client : MonoBehaviour
         ws.OnMessage += (sender, e) => OnMessage(sender, e);
         ws.OnOpen += (sender, e) =>
         {
-            killClickPanel = GameObject.FindGameObjectWithTag("killClickPanel");
-            loginPanel = GameObject.FindGameObjectWithTag("loginPanel");
-            Debug.Log("Connection opened");
-            Debug.Log("" + (killClickPanel == null) + " - " + (loginPanel == null));
-            robot = data;
-            if (killClickPanel != null)
+            mainThreadActions.Enqueue(() =>
             {
-                GameObject.FindGameObjectsWithTag("killClickPanel")[0].GetComponentInChildren<GameObject>().SetActive(false);
-            }
-            Debug.Log("hasLogin: " + hasLogin + ", loginPanel == null: " + (loginPanel == null));
-            if (!hasLogin)
-            {
-                if (loginPanel != null)
+                killClickPanel = GameObject.FindGameObjectWithTag("killClickPanel");
+                loginPanel = GameObject.FindGameObjectWithTag("loginPanel");
+                Debug.Log("Connection opened");
+                Debug.Log("" + (killClickPanel == null) + " - " + (loginPanel == null));
+                robot = data;
+                if (killClickPanel != null)
                 {
-                    GameObject.FindGameObjectsWithTag("loginPanel")[0].GetComponentInChildren<GameObject>().SetActive(true);
+                    killClickPanel.transform.GetChild(0).gameObject.SetActive(false);
                 }
-            }
+                Debug.Log("hasLogin: " + hasLogin + ", loginPanel == null: " + (loginPanel == null));
+                if (!hasLogin && loginPanel != null)
+                {
+                     loginPanel.transform.GetChild(0).gameObject.SetActive(true);
+                }
+            });
         };
         ws.OnClose += (sender, e) =>
         {
-            Debug.Log("Connection closed: " + e.Reason);
-            robot = null;
-            hasLogin = false;
-            ConnectionBarSet();
-            if (killClickPanel != null)
+            mainThreadActions.Enqueue(() =>
             {
-                killClickPanel.GetComponentInChildren<GameObject>().SetActive(true);
-            }
+                Debug.Log("Connection closed: " + e.Reason);
+                robot = null;
+                hasLogin = false;
+                ConnectionBarSet();
+                if (killClickPanel != null)
+                {
+                    killClickPanel.transform.GetChild(0).gameObject.SetActive(true);
+                }
+            });
         };
         ws.Connect();
-        
+
         return true;
     }
 
@@ -90,42 +96,63 @@ public class Client : MonoBehaviour
     {
         Debug.Log("Message received: " + e.Data);
         var data = JsonConvert.DeserializeObject<Dictionary<string, object>>(e.Data);
-        Debug.Log("Command: " + (data.ContainsKey("command") ? data["command"] : "null") + " Data: " + (data.ContainsKey("data") ? data["data"] : "null"));
+        
         string command = data.ContainsKey("command") && data["command"] != null ? data["command"].ToString() : "";
         string msgData = data.ContainsKey("data") && data["data"] != null ? data["data"].ToString() : "";
 
-        if (command == "login" && msgData == "pass")
+        mainThreadActions.Enqueue(() =>
         {
-            hasLogin = true;
-            loginPanel.SetActive(false);
-        }
-
-        if (command == "log")
-        {
-            Debug.Log("Log command received");
-            GameObject consol = GameObject.FindGameObjectWithTag("ConsolContent");
-            Debug.Log("Consol: " + (consol == null));
-            if (consol != null)
+            if (command == "login" && msgData == "pass")
             {
-                var logText = new GameObject("LogText");
-                var tmp = logText.AddComponent<TMP_Text>();
-                tmp.text = msgData;
-                tmp.fontSize = 18;
-                logText.transform.SetParent(consol.transform, false);
+                hasLogin = true;
+                if(loginPanel != null) loginPanel.SetActive(false);
             }
-        }
+            else
+            {
+                GameObject consol = GameObject.FindGameObjectWithTag("ConsolContent");
+                Debug.Log("Consol: " + (consol == null));
+                if (consol != null)
+                {
+                    var logText = new GameObject("LogText");
+                    logText.transform.SetParent(consol.transform, false);
+                    logText.AddComponent<TextMeshProUGUI>();
+
+                    var tmp = logText.GetComponent<TextMeshProUGUI>();
+                    if (command == "log")
+                    {
+                        tmp.text = msgData;
+                    }
+                    else
+                    {
+                        tmp.text = "전달받음:    " + e.Data;
+                    }
+                    
+                    tmp.fontSize = 18;
+
+                    var filter = logText.AddComponent<ContentSizeFitter>();
+                    filter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+                    filter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+                    consol.GetComponentInParent<ScrollRect>().normalizedPosition = new Vector2(0, 0);
+                }
+            }
+        });
     }
 
     public void ConnectionBarSet()
     {
-        string text = "No device";
+        string text = "연결 끊김";
         if (connectionPanel != null && robot != null)
         {
             if (hasLogin)
             {
-                text = "Connected to " + robot.name;
+                text = robot.name + "에 연결되었습니다.";
             }
             connectionPanel.GetComponentsInChildren<TMP_Text>()[0].SetText(text);
+        }
+        else if (connectionPanel != null)
+        {
+             connectionPanel.GetComponentsInChildren<TMP_Text>()[0].SetText(text);
         }
     }
 
@@ -149,10 +176,11 @@ public class Client : MonoBehaviour
         connectionPanel = GameObject.FindGameObjectWithTag("connectionPanel");
         ConnectionBarSet();
     }
-
-    // Update is called once per frame
     void Update()
     {
-        
+        while (mainThreadActions.TryDequeue(out var action))
+        {
+            action?.Invoke();
+        }
     }
 }
